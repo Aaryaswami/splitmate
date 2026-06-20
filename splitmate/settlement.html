@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settle Up — SplitMate</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .settle-page{max-width:640px;margin:0 auto;padding:var(--space-xl) var(--space-lg) var(--space-3xl)}
+    .settle-card{padding:var(--space-lg);margin-bottom:var(--space-sm)}
+    .settle-row{display:flex;align-items:center;gap:var(--space-md);flex-wrap:wrap}
+    .settle-from,.settle-to{font-weight:700;font-size:var(--text-base)}
+    .settle-arrow{color:var(--text-muted)}
+    .settle-amount{margin-left:auto;font-weight:800;font-size:var(--text-lg);color:var(--danger-light)}
+    .settle-actions{display:flex;gap:var(--space-sm);margin-top:var(--space-md)}
+    .settle-actions .btn{font-size:var(--text-sm);padding:8px 14px}
+    .balance-summary{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:var(--space-md);margin-bottom:var(--space-xl)}
+    .balance-chip{padding:var(--space-md);border-radius:var(--radius-md);background:var(--bg-input);border:1px solid var(--border-color);text-align:center}
+    .balance-chip .name{font-size:var(--text-sm);color:var(--text-secondary);margin-bottom:4px}
+    .balance-chip .value{font-size:var(--text-xl);font-weight:800}
+    .settled-list{margin-top:var(--space-xl)}
+    .settled-item{display:flex;align-items:center;gap:var(--space-md);padding:var(--space-sm) 0;border-bottom:1px solid var(--border-color);font-size:var(--text-sm);color:var(--text-secondary)}
+    .settled-item:last-child{border-bottom:none}
+    @media(max-width:480px){
+      .settle-row{flex-direction:column;align-items:flex-start;gap:var(--space-sm)}
+      .settle-amount{margin-left:0}
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="groups.html" class="navbar-brand"><img src="assets/logo.svg" alt="SplitMate"><span>SplitMate</span></a>
+    <div class="navbar-nav"><a href="groups.html"><i class="fa-solid fa-layer-group"></i> Groups</a></div>
+  </nav>
+
+  <div class="settle-page">
+    <a href="#" id="back-link" style="font-size:var(--text-sm);color:var(--text-muted);display:inline-flex;align-items:center;gap:4px;margin-bottom:var(--space-md)"><i class="fa-solid fa-arrow-left"></i> Back to group</a>
+    <h1 style="margin-bottom:var(--space-xs)">Settle Up</h1>
+    <p class="text-muted text-sm" style="margin-bottom:var(--space-xl)" id="group-title"></p>
+
+    <div id="loading" class="page-loader"><div class="loader loader-lg"></div></div>
+
+    <div id="content" class="hidden">
+      <!-- Balance Summary -->
+      <h3 style="margin-bottom:var(--space-md)">Net Balances</h3>
+      <div class="balance-summary" id="balance-summary"></div>
+
+      <!-- Simplified Debts -->
+      <h3 style="margin-bottom:var(--space-md)">Transactions Needed</h3>
+      <div id="debt-cards"></div>
+
+      <!-- Settlement History -->
+      <div class="settled-list" id="settled-section">
+        <h3 style="margin-bottom:var(--space-md)">Settlement History</h3>
+        <div id="settled-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireAuth, showToast, formatCurrency, formatDate, escapeHTML, setButtonLoading } from './js/utils.js';
+    import { db, doc, getDoc, setDoc, collection, query, where, getDocs, serverTimestamp, orderBy } from './js/firebase-config.js';
+    import { getGroupExpenses } from './js/expenses.js';
+    import { calculateNetBalances, simplifyDebts, getBalanceSummary } from './js/settlement.js';
+
+    const user = await requireAuth();
+    const groupId = new URLSearchParams(window.location.search).get('groupId');
+    if (!groupId) window.location.href = 'groups.html';
+
+    document.getElementById('back-link').href = `group.html?id=${groupId}`;
+
+    try {
+      const groupSnap = await getDoc(doc(db, 'groups', groupId));
+      if (!groupSnap.exists()) { window.location.href = 'groups.html'; }
+      const group = groupSnap.data();
+      document.getElementById('group-title').textContent = group.name;
+
+      // Load expenses & settlements
+      const expenses = await getGroupExpenses(groupId);
+      const settleQ = query(collection(db, 'settlements'), where('groupId', '==', groupId), orderBy('settledAt', 'desc'));
+      let settlements = [];
+      try { const sSnap = await getDocs(settleQ); settlements = sSnap.docs.map(d => ({ id: d.id, ...d.data() })); } catch(e) { /* index may not exist yet */ }
+
+      const balances = calculateNetBalances(expenses, settlements);
+      const summary = getBalanceSummary(balances);
+      const debts = simplifyDebts(balances);
+
+      // Render balance chips
+      document.getElementById('balance-summary').innerHTML = summary.length === 0
+        ? '<p class="text-muted">No expenses yet</p>'
+        : summary.map(s => {
+          const color = s.status === 'credit' ? 'var(--success)' : s.status === 'debt' ? 'var(--danger)' : 'var(--text-muted)';
+          const sign = s.amount > 0 ? '+' : '';
+          return `<div class="balance-chip">
+            <div class="name">${escapeHTML(s.name)}</div>
+            <div class="value" style="color:${color}">${sign}${formatCurrency(s.amount)}</div>
+          </div>`;
+        }).join('');
+
+      // Render debt cards
+      document.getElementById('debt-cards').innerHTML = debts.length === 0
+        ? '<div class="empty-state" style="padding:var(--space-xl)"><i class="fa-solid fa-check-circle"></i><h3>All settled up! 🎉</h3><p class="text-muted">No pending debts in this group.</p></div>'
+        : debts.map((d, i) => {
+          const waMsg = encodeURIComponent(`Hey ${d.toName}, I'm settling ₹${d.amount} from our "${group.name}" expenses on SplitMate! ✅`);
+          return `<div class="card settle-card">
+            <div class="settle-row">
+              <span class="settle-from">${escapeHTML(d.fromName)}</span>
+              <span class="settle-arrow"><i class="fa-solid fa-arrow-right"></i> pays</span>
+              <span class="settle-to">${escapeHTML(d.toName)}</span>
+              <span class="settle-amount">${formatCurrency(d.amount)}</span>
+            </div>
+            <div class="settle-actions">
+              <button class="btn btn-primary mark-settled" data-idx="${i}"><i class="fa-solid fa-check"></i> Mark Settled</button>
+              <a href="https://wa.me/?text=${waMsg}" target="_blank" class="btn btn-secondary"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+            </div>
+          </div>`;
+        }).join('');
+
+      // Mark settled handler
+      document.getElementById('debt-cards').addEventListener('click', async (e) => {
+        const btn = e.target.closest('.mark-settled');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.idx);
+        const d = debts[idx];
+        if (!d) return;
+
+        setButtonLoading(btn, true);
+        try {
+          const ref = doc(collection(db, 'settlements'));
+          await setDoc(ref, {
+            groupId,
+            fromUserId: d.fromUserId,
+            fromUserName: d.fromName,
+            toUserId: d.toUserId,
+            toUserName: d.toName,
+            amount: d.amount,
+            settledAt: serverTimestamp()
+          });
+          showToast('Marked as settled!', 'success');
+          // Reload page to recalculate
+          window.location.reload();
+        } catch (err) {
+          console.error(err);
+          showToast('Failed to mark settled', 'error');
+          setButtonLoading(btn, false);
+        }
+      });
+
+      // Render settlement history
+      if (settlements.length > 0) {
+        document.getElementById('settled-list').innerHTML = settlements.map(s =>
+          `<div class="settled-item">
+            <i class="fa-solid fa-check-circle" style="color:var(--success)"></i>
+            <span>${escapeHTML(s.fromUserName)} paid ${escapeHTML(s.toUserName)}</span>
+            <span style="margin-left:auto;font-weight:600;color:var(--text-primary)">${formatCurrency(s.amount)}</span>
+            <span>${formatDate(s.settledAt)}</span>
+          </div>`
+        ).join('');
+      } else {
+        document.getElementById('settled-section').classList.add('hidden');
+      }
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('content').classList.remove('hidden');
+    } catch (e) {
+      console.error(e);
+      document.getElementById('loading').innerHTML = '<p class="text-center text-danger">Failed to load settlement data</p>';
+    }
+  </script>
+</body>
+</html>

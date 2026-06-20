@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Details — SplitMate</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .expense-page{max-width:600px;margin:0 auto;padding:var(--space-xl) var(--space-lg) var(--space-3xl)}
+    .expense-hero{text-align:center;padding:var(--space-2xl) var(--space-lg);border-radius:var(--radius-lg);background:linear-gradient(135deg,rgba(124,58,237,.08),rgba(79,70,229,.08));border:1px solid rgba(124,58,237,.15);margin-bottom:var(--space-xl)}
+    .expense-hero .icon{font-size:48px;margin-bottom:var(--space-md)}
+    .expense-hero h1{font-size:var(--text-2xl);margin-bottom:4px}
+    .expense-hero .amount{font-family:var(--font-heading);font-size:var(--text-4xl);font-weight:800;background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-md);margin-bottom:var(--space-xl)}
+    .detail-card{padding:var(--space-md);background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md)}
+    .detail-card .label{font-size:var(--text-xs);color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+    .detail-card .value{font-size:var(--text-base);font-weight:600}
+    .split-table{width:100%}
+    .split-table tr{border-bottom:1px solid var(--border-color)}
+    .split-table tr:last-child{border-bottom:none}
+    .split-table td{padding:10px 0;font-size:var(--text-sm)}
+    .split-table td:last-child{text-align:right;font-weight:600}
+    .contrib-section{margin-bottom:var(--space-xl)}
+    .contrib-item{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-color);font-size:var(--text-sm)}
+    .contrib-item:last-child{border-bottom:none}
+    @media(max-width:480px){.detail-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="groups.html" class="navbar-brand"><img src="assets/logo.svg" alt="SplitMate"><span>SplitMate</span></a>
+  </nav>
+
+  <div class="expense-page">
+    <a href="#" id="back-link" class="page-back" style="display:inline-flex;align-items:center;gap:6px;color:var(--text-secondary);font-size:var(--text-sm);margin-bottom:var(--space-lg)"><i class="fa-solid fa-arrow-left"></i> Back to group</a>
+
+    <div id="loading" class="page-loader"><div class="loader loader-lg"></div></div>
+
+    <div id="content" class="hidden">
+      <div class="expense-hero">
+        <div class="icon" id="cat-icon"></div>
+        <h1 id="exp-title"></h1>
+        <div class="amount" id="exp-amount"></div>
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-card"><div class="label">Paid By</div><div class="value" id="exp-payer"></div></div>
+        <div class="detail-card"><div class="label">Split Type</div><div class="value" id="exp-split-type"></div></div>
+        <div class="detail-card"><div class="label">Category</div><div class="value" id="exp-category"></div></div>
+        <div class="detail-card"><div class="label">Date</div><div class="value" id="exp-date"></div></div>
+      </div>
+
+      <!-- Contributions -->
+      <div class="contrib-section hidden" id="contrib-section">
+        <h3 style="margin-bottom:var(--space-md)">Contributions</h3>
+        <div class="card-flat" style="padding:var(--space-md)" id="contrib-list"></div>
+      </div>
+
+      <!-- Splits -->
+      <h3 style="margin-bottom:var(--space-md)">Split Breakdown</h3>
+      <div class="card-flat" style="padding:var(--space-md);margin-bottom:var(--space-xl)">
+        <table class="split-table" id="split-table"></table>
+      </div>
+
+      <!-- Delete -->
+      <div id="delete-section" class="hidden">
+        <button class="btn btn-block" id="delete-btn" style="background:rgba(244,63,94,.1);color:var(--danger-light);border:1px solid rgba(244,63,94,.2);padding:12px;">
+          <i class="fa-solid fa-trash"></i> Delete Expense
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div class="modal-overlay hidden" id="delete-modal">
+    <div class="modal">
+      <div class="modal-header"><h3>Delete Expense?</h3><button class="modal-close" id="close-delete">&times;</button></div>
+      <p class="text-muted" style="margin-bottom:var(--space-lg)">This will permanently remove this expense and recalculate group balances.</p>
+      <div style="display:flex;gap:var(--space-sm)">
+        <button class="btn btn-secondary" id="cancel-delete" style="flex:1">Cancel</button>
+        <button class="btn btn-primary" id="confirm-delete" style="flex:1;background:var(--danger)">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireAuth, showToast, formatCurrency, formatDate, escapeHTML, setButtonLoading } from './js/utils.js';
+    import { db, doc, getDoc } from './js/firebase-config.js';
+    import { deleteExpense } from './js/expenses.js';
+
+    const catIcons = { food:'🍕', rent:'🏠', travel:'🚗', entertainment:'🎬', other:'📦' };
+    const catNames = { food:'Food', rent:'Rent', travel:'Travel', entertainment:'Entertainment', other:'Other' };
+
+    (async () => {
+    const user = await requireAuth();
+    const expId = new URLSearchParams(window.location.search).get('id');
+    if (!expId) { window.location.href = 'groups.html'; return; }
+
+    try {
+      const snap = await getDoc(doc(db, 'expenses', expId));
+      if (!snap.exists()) { document.getElementById('loading').innerHTML = '<p class="text-center text-danger">Expense not found</p>'; return; }
+      const exp = snap.data();
+
+      document.getElementById('back-link').href = `group.html?id=${exp.groupId}`;
+      document.getElementById('cat-icon').textContent = catIcons[exp.category] || '📦';
+      document.getElementById('exp-title').textContent = exp.description;
+      document.getElementById('exp-amount').textContent = formatCurrency(exp.amount);
+      document.getElementById('exp-payer').textContent = exp.paidByName;
+      document.getElementById('exp-split-type').textContent = exp.splitType === 'equal' ? 'Equal Split' : 'Custom Split';
+      document.getElementById('exp-category').textContent = catNames[exp.category] || 'Other';
+      document.getElementById('exp-date').textContent = formatDate(exp.createdAt);
+
+      // Contributions
+      if (exp.contributions && exp.contributions.length > 0) {
+        document.getElementById('contrib-section').classList.remove('hidden');
+        document.getElementById('contrib-list').innerHTML = exp.contributions.map(c =>
+          `<div class="contrib-item"><span>${escapeHTML(c.name)}</span><span style="font-weight:600;color:var(--success)">${formatCurrency(c.amount)}</span></div>`
+        ).join('');
+      }
+
+      // Splits
+      document.getElementById('split-table').innerHTML = (exp.splits || []).map(s =>
+        `<tr><td>${escapeHTML(s.name)}</td><td>${formatCurrency(s.share)}</td></tr>`
+      ).join('');
+
+      // Delete (only if user added expense)
+      if (exp.addedById === user.uid) {
+        document.getElementById('delete-section').classList.remove('hidden');
+        document.getElementById('delete-btn').addEventListener('click', () => document.getElementById('delete-modal').classList.remove('hidden'));
+        document.getElementById('close-delete').addEventListener('click', () => document.getElementById('delete-modal').classList.add('hidden'));
+        document.getElementById('cancel-delete').addEventListener('click', () => document.getElementById('delete-modal').classList.add('hidden'));
+        document.getElementById('confirm-delete').addEventListener('click', async () => {
+          const btn = document.getElementById('confirm-delete');
+          setButtonLoading(btn, true);
+          try {
+            await deleteExpense(expId, exp.groupId, exp.amount);
+            showToast('Expense deleted', 'success');
+            window.location.href = `group.html?id=${exp.groupId}`;
+          } catch (e) {
+            console.error(e);
+            showToast('Failed to delete', 'error');
+            setButtonLoading(btn, false);
+          }
+        });
+      }
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('content').classList.remove('hidden');
+    } catch (e) {
+      console.error(e);
+      document.getElementById('loading').innerHTML = '<p class="text-center text-danger">Failed to load expense</p>';
+    }
+    })();
+  </script>
+</body>
+</html>

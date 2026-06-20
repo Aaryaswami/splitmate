@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Expense — SplitMate</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .expense-page { max-width:560px; margin:0 auto; padding:var(--space-xl) var(--space-lg) var(--space-3xl); }
+    .page-back { display:inline-flex; align-items:center; gap:6px; color:var(--text-secondary); font-size:var(--text-sm); margin-bottom:var(--space-lg); }
+    .page-back:hover { color:var(--text-primary); }
+    .split-toggle { display:flex; background:var(--bg-input); border-radius:var(--radius-md); overflow:hidden; border:1px solid var(--border-color); }
+    .split-toggle button { flex:1; padding:10px; background:none; border:none; color:var(--text-secondary); font-weight:600; font-size:var(--text-sm); cursor:pointer; transition:all var(--transition-fast); font-family:inherit; }
+    .split-toggle button.active { background:var(--primary); color:white; }
+    .category-grid { display:flex; flex-wrap:wrap; gap:var(--space-sm); }
+    .category-chip { padding:8px 14px; border-radius:var(--radius-full); background:var(--bg-input); border:1px solid var(--border-color); color:var(--text-secondary); font-size:var(--text-sm); cursor:pointer; transition:all var(--transition-fast); }
+    .category-chip.active { border-color:var(--primary); background:rgba(124,58,237,0.15); color:var(--primary-light); }
+    .split-list { display:flex; flex-direction:column; gap:var(--space-sm); margin-top:var(--space-sm); }
+    .split-row { display:flex; align-items:center; gap:var(--space-md); padding:10px 14px; background:var(--bg-input); border-radius:var(--radius-md); border:1px solid var(--border-color); }
+    .split-row .member-name { flex:1; font-size:var(--text-sm); font-weight:500; }
+    .split-row .share-display { font-size:var(--text-sm); color:var(--success); font-weight:600; }
+    .split-row input { width:100px; padding:6px 10px; background:var(--bg-secondary); border:1px solid var(--border-color); border-radius:var(--radius-sm); color:var(--text-primary); font-size:var(--text-sm); text-align:right; outline:none; font-family:inherit; }
+    .split-row input:focus { border-color:var(--primary); }
+    .split-total { display:flex; justify-content:space-between; padding:10px 14px; font-size:var(--text-sm); font-weight:600; }
+    .split-total.error { color:var(--danger); }
+    .split-total.valid { color:var(--success); }
+    .amount-input-wrap { position:relative; }
+    .amount-input-wrap .currency { position:absolute; left:16px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-weight:600; }
+    .amount-input-wrap input { padding-left:30px; }
+    .payer-mode-toggle{display:flex;gap:var(--space-sm);margin-bottom:var(--space-sm)}
+    .payer-mode-toggle button{padding:6px 12px;border-radius:var(--radius-full);background:var(--bg-input);border:1px solid var(--border-color);color:var(--text-secondary);font-size:var(--text-xs);cursor:pointer;font-family:inherit;font-weight:600;transition:all var(--transition-fast)}
+    .payer-mode-toggle button.active{border-color:var(--primary);background:rgba(124,58,237,.15);color:var(--primary-light)}
+    .contrib-list{display:flex;flex-direction:column;gap:var(--space-sm);margin-top:var(--space-sm)}
+    .contrib-row{display:flex;align-items:center;gap:var(--space-sm);padding:8px 12px;background:var(--bg-input);border-radius:var(--radius-md);border:1px solid var(--border-color)}
+    .contrib-row select{flex:1;padding:6px 8px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:var(--text-sm);font-family:inherit;outline:none}
+    .contrib-row input{width:90px;padding:6px 8px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-sm);color:var(--text-primary);font-size:var(--text-sm);text-align:right;outline:none;font-family:inherit}
+    .contrib-row .remove-contrib{background:none;border:none;color:var(--danger);cursor:pointer;font-size:var(--text-base);padding:4px}
+    .add-contrib-btn{background:none;border:1px dashed var(--border-color);border-radius:var(--radius-md);padding:8px;color:var(--text-muted);font-size:var(--text-sm);cursor:pointer;width:100%;font-family:inherit;transition:all var(--transition-fast)}
+    .add-contrib-btn:hover{border-color:var(--primary);color:var(--primary-light)}
+    .member-select{display:flex;flex-direction:column;gap:var(--space-sm);margin-bottom:var(--space-md)}
+    .member-check{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-input);border-radius:var(--radius-md);border:1px solid var(--border-color);cursor:pointer;transition:all var(--transition-fast);font-size:var(--text-sm)}
+    .member-check:has(input:checked){border-color:var(--primary);background:rgba(124,58,237,.08)}
+    .member-check input[type=checkbox]{accent-color:var(--primary);width:18px;height:18px;cursor:pointer}
+    .per-person-banner{background:linear-gradient(135deg,rgba(16,185,129,.1),rgba(124,58,237,.1));border:1px solid rgba(16,185,129,.2);border-radius:var(--radius-md);padding:var(--space-md);text-align:center;margin-bottom:var(--space-md)}
+    .per-person-banner .amount{font-family:var(--font-heading);font-size:var(--text-2xl);font-weight:800;color:var(--success)}
+    .per-person-banner .label{font-size:var(--text-sm);color:var(--text-secondary);margin-top:2px}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="groups.html" class="navbar-brand">
+      <img src="assets/logo.svg" alt="SplitMate">
+      <span>SplitMate</span>
+    </a>
+  </nav>
+
+  <div class="expense-page">
+    <a href="#" class="page-back" id="back-link"><i class="fa-solid fa-arrow-left"></i> Back to group</a>
+    <h1 style="margin-bottom:var(--space-xl);">Add Expense</h1>
+
+    <div id="loading" class="page-loader"><div class="loader loader-lg"></div></div>
+
+    <form id="expense-form" class="hidden" novalidate>
+      <!-- Description -->
+      <div class="form-group">
+        <label class="form-label" for="description">Description *</label>
+        <input class="form-input" type="text" id="description" placeholder="e.g. Dinner at Meghana's" maxlength="100" required>
+        <span class="form-error" id="desc-error"></span>
+      </div>
+
+      <!-- Amount -->
+      <div class="form-group">
+        <label class="form-label" for="amount">Amount *</label>
+        <div class="amount-input-wrap">
+          <span class="currency">₹</span>
+          <input class="form-input" type="number" id="amount" placeholder="0.00" min="1" step="0.01" required>
+        </div>
+        <span class="form-error" id="amount-error"></span>
+      </div>
+
+      <!-- Paid By -->
+      <div class="form-group">
+        <label class="form-label">Who paid? *</label>
+        <div class="payer-mode-toggle">
+          <button type="button" class="active" data-pmode="single">Single Payer</button>
+          <button type="button" data-pmode="split">Split Payment</button>
+        </div>
+        <!-- Single payer -->
+        <div id="single-payer">
+          <select class="form-input" id="paid-by">
+            <option value="">Select who paid</option>
+          </select>
+        </div>
+        <!-- Multi-payer contributions -->
+        <div id="multi-payer" class="hidden">
+          <div class="contrib-list" id="contrib-list"></div>
+          <button type="button" class="add-contrib-btn" id="add-contrib"><i class="fa-solid fa-plus"></i> Add Contributor</button>
+          <div class="split-total hidden" id="contrib-total"></div>
+          <span class="form-error" id="contrib-error"></span>
+        </div>
+      </div>
+
+      <!-- Category -->
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <div class="category-grid" id="category-grid">
+          <button type="button" class="category-chip active" data-cat="food">🍕 Food</button>
+          <button type="button" class="category-chip" data-cat="rent">🏠 Rent</button>
+          <button type="button" class="category-chip" data-cat="travel">🚗 Travel</button>
+          <button type="button" class="category-chip" data-cat="entertainment">🎬 Fun</button>
+          <button type="button" class="category-chip" data-cat="other">📦 Other</button>
+        </div>
+      </div>
+
+      <!-- Split Type -->
+      <div class="form-group">
+        <label class="form-label">Split Type</label>
+        <div class="split-toggle">
+          <button type="button" class="active" data-split="equal">Equal Split</button>
+          <button type="button" data-split="custom">Custom Split</button>
+        </div>
+      </div>
+
+      <!-- Member Selection -->
+      <div class="form-group">
+        <label class="form-label">Split Among</label>
+        <div class="member-select" id="member-select"></div>
+      </div>
+
+      <!-- Per Person Banner -->
+      <div class="per-person-banner hidden" id="per-person-banner">
+        <div class="amount" id="per-person-amount">₹0</div>
+        <div class="label">per person</div>
+      </div>
+
+      <!-- Split Preview -->
+      <div class="form-group">
+        <label class="form-label">Split Breakdown</label>
+        <div class="split-list" id="split-list"></div>
+        <div class="split-total hidden" id="split-total"></div>
+        <span class="form-error" id="split-error"></span>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block" id="submit-btn" style="margin-top:var(--space-lg);">
+        <i class="fa-solid fa-plus"></i> Add Expense
+      </button>
+    </form>
+  </div>
+
+  <script type="module">
+    import { requireAuth, showToast, setButtonLoading, formatCurrency } from './js/utils.js';
+    import { addExpense, calculateEqualSplit, validateCustomSplit } from './js/expenses.js';
+    import { db, doc, getDoc } from './js/firebase-config.js';
+
+    const user = await requireAuth();
+    const params = new URLSearchParams(window.location.search);
+    const groupId = params.get('groupId');
+
+    if (!groupId) { window.location.href = 'groups.html'; }
+
+    const backLink = document.getElementById('back-link');
+    backLink.href = `group.html?id=${groupId}`;
+
+    // --- Load group members ---
+    let members = [];
+    let selectedCategory = 'food';
+    let splitType = 'equal';
+    let payerMode = 'single';
+
+    try {
+      const snap = await getDoc(doc(db, 'groups', groupId));
+      if (!snap.exists()) { window.location.href = 'groups.html'; }
+      const group = snap.data();
+      members = group.memberDetails || [];
+
+      const select = document.getElementById('paid-by');
+      members.forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        if (m.id === user.uid) opt.selected = true;
+        select.appendChild(opt);
+      });
+
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('expense-form').classList.remove('hidden');
+
+      // Render member checkboxes
+      document.getElementById('member-select').innerHTML = members.map(m =>
+        `<label class="member-check"><input type="checkbox" value="${m.id}" data-name="${m.name}" checked> ${m.name}</label>`
+      ).join('');
+
+      renderSplits();
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to load group', 'error');
+    }
+
+    // --- Category Selection ---
+    document.getElementById('category-grid').addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-cat]');
+      if (!chip) return;
+      document.querySelectorAll('.category-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      selectedCategory = chip.dataset.cat;
+    });
+
+    // --- Payer Mode Toggle ---
+    document.querySelector('.payer-mode-toggle').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-pmode]');
+      if (!btn) return;
+      document.querySelectorAll('.payer-mode-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      payerMode = btn.dataset.pmode;
+      document.getElementById('single-payer').classList.toggle('hidden', payerMode === 'split');
+      document.getElementById('multi-payer').classList.toggle('hidden', payerMode === 'single');
+      if (payerMode === 'split' && document.querySelectorAll('.contrib-row').length === 0) addContribRow();
+    });
+
+    // --- Contribution Rows ---
+    function addContribRow() {
+      const list = document.getElementById('contrib-list');
+      const row = document.createElement('div');
+      row.className = 'contrib-row';
+      row.innerHTML = `<select>${members.map(m => `<option value="${m.id}" data-name="${m.name}">${m.name}</option>`).join('')}</select><input type="number" placeholder="₹0" min="0" step="0.01"><button type="button" class="remove-contrib"><i class="fa-solid fa-xmark"></i></button>`;
+      list.appendChild(row);
+      updateContribTotal();
+    }
+
+    document.getElementById('add-contrib').addEventListener('click', addContribRow);
+
+    document.getElementById('contrib-list').addEventListener('click', (e) => {
+      if (e.target.closest('.remove-contrib')) {
+        e.target.closest('.contrib-row').remove();
+        updateContribTotal();
+      }
+    });
+
+    document.getElementById('contrib-list').addEventListener('input', updateContribTotal);
+
+    function updateContribTotal() {
+      const amount = parseFloat(document.getElementById('amount').value) || 0;
+      const inputs = document.querySelectorAll('#contrib-list input');
+      let sum = 0;
+      inputs.forEach(i => sum += parseFloat(i.value) || 0);
+      sum = Math.round(sum * 100) / 100;
+      const totalEl = document.getElementById('contrib-total');
+      totalEl.classList.remove('hidden');
+      const match = Math.abs(sum - amount) < 0.01;
+      totalEl.className = `split-total ${match ? 'valid' : 'error'}`;
+      totalEl.innerHTML = `<span>Paid: ${formatCurrency(sum)}</span><span>of ${formatCurrency(amount)}</span>`;
+    }
+
+    // --- Split Toggle ---
+    document.querySelector('.split-toggle').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-split]');
+      if (!btn) return;
+      document.querySelectorAll('.split-toggle button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      splitType = btn.dataset.split;
+      renderSplits();
+    });
+
+    // --- Get Selected Members ---
+    function getSelectedMembers() {
+      const checks = document.querySelectorAll('#member-select input:checked');
+      return Array.from(checks).map(c => ({ id: c.value, name: c.dataset.name }));
+    }
+
+    // --- Render Splits ---
+    function renderSplits() {
+      const amount = parseFloat(document.getElementById('amount').value) || 0;
+      const list = document.getElementById('split-list');
+      const totalEl = document.getElementById('split-total');
+      const banner = document.getElementById('per-person-banner');
+      const selected = getSelectedMembers();
+
+      if (splitType === 'equal') {
+        totalEl.classList.add('hidden');
+        if (amount > 0 && selected.length > 0) {
+          const splits = calculateEqualSplit(amount, selected);
+          // Show per-person banner
+          banner.classList.remove('hidden');
+          document.getElementById('per-person-amount').textContent = formatCurrency(Math.round(amount / selected.length * 100) / 100);
+          list.innerHTML = splits.map(s => `
+            <div class="split-row">
+              <span class="member-name">${s.name}</span>
+              <span class="share-display">${formatCurrency(s.share)}</span>
+            </div>`).join('');
+        } else {
+          banner.classList.add('hidden');
+          list.innerHTML = selected.map(m => `
+            <div class="split-row">
+              <span class="member-name">${m.name}</span>
+              <span class="share-display">₹0</span>
+            </div>`).join('');
+        }
+      } else {
+        banner.classList.add('hidden');
+        totalEl.classList.remove('hidden');
+        
+        const currentVals = {};
+        document.querySelectorAll('#split-list input').forEach(inp => {
+          currentVals[inp.dataset.uid] = inp.value;
+        });
+
+        list.innerHTML = selected.map(m => `
+          <div class="split-row">
+            <span class="member-name">${m.name}</span>
+            <input type="number" data-uid="${m.id}" data-name="${m.name}" placeholder="0" min="0" step="0.01" value="${currentVals[m.id] || ''}">
+          </div>`).join('');
+        updateCustomTotal();
+      }
+    }
+
+    function updateCustomTotal() {
+      const amount = parseFloat(document.getElementById('amount').value) || 0;
+      const inputs = document.querySelectorAll('#split-list input');
+      let sum = 0;
+      inputs.forEach(i => sum += parseFloat(i.value) || 0);
+      sum = Math.round(sum * 100) / 100;
+      const totalEl = document.getElementById('split-total');
+      const match = Math.abs(sum - amount) < 0.01;
+      totalEl.className = `split-total ${match ? 'valid' : 'error'}`;
+      totalEl.innerHTML = `<span>Total: ${formatCurrency(sum)}</span><span>of ${formatCurrency(amount)}</span>`;
+    }
+
+    document.getElementById('split-list').addEventListener('input', (e) => {
+      if (e.target.tagName === 'INPUT') updateCustomTotal();
+    });
+
+    document.getElementById('amount').addEventListener('input', () => {
+      renderSplits();
+      if (payerMode === 'split') updateContribTotal();
+    });
+
+    // --- Member checkbox change ---
+    document.getElementById('member-select').addEventListener('change', renderSplits);
+
+    // --- Submit ---
+    document.getElementById('expense-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const desc = document.getElementById('description').value.trim();
+      const amount = parseFloat(document.getElementById('amount').value);
+      const btn = document.getElementById('submit-btn');
+
+      // Clear errors
+      document.getElementById('desc-error').textContent = '';
+      document.getElementById('amount-error').textContent = '';
+      document.getElementById('split-error').textContent = '';
+      const contribErr = document.getElementById('contrib-error');
+      if (contribErr) contribErr.textContent = '';
+
+      // Validate
+      let valid = true;
+      if (!desc) { document.getElementById('desc-error').textContent = 'Required'; valid = false; }
+      if (!amount || amount <= 0) { document.getElementById('amount-error').textContent = 'Enter a valid amount'; valid = false; }
+
+      // Payer validation
+      let paidById = '', paidByName = '', contributions = null;
+      if (payerMode === 'single') {
+        paidById = document.getElementById('paid-by').value;
+        if (!paidById) { valid = false; }
+        const payer = members.find(m => m.id === paidById);
+        paidByName = payer?.name || '';
+      } else {
+        // Multi-payer contributions
+        const rows = document.querySelectorAll('#contrib-list .contrib-row');
+        if (rows.length === 0) { contribErr.textContent = 'Add at least one contributor'; valid = false; }
+        contributions = [];
+        let cSum = 0;
+        rows.forEach(row => {
+          const sel = row.querySelector('select');
+          const inp = row.querySelector('input');
+          const amt = parseFloat(inp.value) || 0;
+          if (amt > 0) {
+            contributions.push({ userId: sel.value, name: sel.options[sel.selectedIndex].dataset.name, amount: amt });
+            cSum += amt;
+          }
+        });
+        cSum = Math.round(cSum * 100) / 100;
+        if (Math.abs(cSum - amount) > 0.01) {
+          if (contribErr) contribErr.textContent = `Contributions total ${formatCurrency(cSum)}, need ${formatCurrency(amount)}`;
+          valid = false;
+        }
+        // Use first contributor as primary payer for backward compat display
+        if (contributions.length > 0) {
+          paidById = contributions[0].userId;
+          paidByName = contributions[0].name + (contributions.length > 1 ? ` +${contributions.length - 1}` : '');
+        }
+      }
+
+      // Split validation
+      const selected = getSelectedMembers();
+      if (selected.length === 0) {
+        document.getElementById('split-error').textContent = 'Select at least one member';
+        valid = false;
+      }
+
+      let splits;
+      if (splitType === 'equal') {
+        splits = calculateEqualSplit(amount, selected);
+      } else {
+        const inputs = document.querySelectorAll('#split-list input');
+        splits = Array.from(inputs).map(i => ({
+          userId: i.dataset.uid,
+          name: i.dataset.name,
+          share: parseFloat(i.value) || 0
+        }));
+        const v = validateCustomSplit(amount, splits);
+        if (!v.valid) {
+          document.getElementById('split-error').textContent = v.message;
+          valid = false;
+        }
+      }
+
+      if (!valid) return;
+
+      setButtonLoading(btn, true);
+      try {
+        const expenseData = {
+          description: desc,
+          amount,
+          paidById,
+          paidByName,
+          splitType,
+          splits,
+          category: selectedCategory
+        };
+        if (contributions) expenseData.contributions = contributions;
+        await addExpense(groupId, expenseData, user);
+        showToast('Expense added!', 'success');
+        window.location.href = `group.html?id=${groupId}`;
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to add expense', 'error');
+        setButtonLoading(btn, false);
+      }
+    });
+  </script>
+</body>
+</html>
