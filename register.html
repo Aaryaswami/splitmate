@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register — SplitMate</title>
+  <meta name="description" content="Create your SplitMate account to start splitting expenses with friends.">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <div class="auth-page">
+    <!-- Left Illustration -->
+    <div class="auth-left">
+      <div class="auth-illustration">
+        <div style="font-size: 72px; margin-bottom: 24px;">🤝</div>
+        <h2>Join Your Squad</h2>
+        <p>Create an account, start a group, and never worry about who owes what again.</p>
+      </div>
+    </div>
+
+    <!-- Right Form -->
+    <div class="auth-right">
+      <div class="auth-form-wrapper">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <img src="assets/logo.svg" alt="SplitMate" width="36" height="36">
+          <span style="font-family:var(--font-heading);font-size:var(--text-xl);font-weight:800;">SplitMate</span>
+        </div>
+        <h1>Create account</h1>
+        <p class="subtitle">Get started — it's free</p>
+
+        <!-- Google Sign Up -->
+        <button type="button" class="btn btn-google" id="google-register-btn">
+          <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.9 33.6 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.2-2.7-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.5 15.5 18.8 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.3 35.2 26.7 36 24 36c-5.3 0-9.8-3.4-11.4-8.1l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C36.7 39.5 44 34 44 24c0-1.3-.2-2.7-.4-3.9z"/></svg>
+          Sign up with Google
+        </button>
+
+        <div class="divider">or</div>
+
+        <!-- Registration Form -->
+        <form id="register-form" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="name">Full Name</label>
+            <input class="form-input" type="text" id="name" placeholder="John Doe" autocomplete="name" required>
+            <span class="form-error" id="name-error"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="email">Email</label>
+            <input class="form-input" type="email" id="email" placeholder="you@example.com" autocomplete="email" required>
+            <span class="form-error" id="email-error"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <div class="password-toggle">
+              <input class="form-input" type="password" id="password" placeholder="Min 6 characters" autocomplete="new-password" required>
+              <button type="button" class="toggle-btn" id="toggle-password" aria-label="Toggle password">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <!-- Strength bar -->
+            <div class="password-strength" id="password-strength">
+              <div class="strength-bar"></div>
+            </div>
+            <span class="form-error" id="password-error"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="confirm-password">Confirm Password</label>
+            <div class="password-toggle">
+              <input class="form-input" type="password" id="confirm-password" placeholder="••••••••" autocomplete="new-password" required>
+              <button type="button" class="toggle-btn" id="toggle-confirm" aria-label="Toggle password">
+                <i class="fa-solid fa-eye"></i>
+              </button>
+            </div>
+            <span class="form-error" id="confirm-error"></span>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block" id="register-btn">
+            <i class="fa-solid fa-user-plus"></i> Create Account
+          </button>
+        </form>
+
+        <p class="auth-footer">
+          Already have an account? <a href="login">Sign in</a>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .password-strength {
+      height: 4px;
+      background: var(--bg-tertiary);
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .strength-bar {
+      height: 100%;
+      width: 0%;
+      border-radius: 2px;
+      transition: all 300ms ease;
+    }
+  </style>
+
+  <script type="module">
+    import { loginWithGoogle, registerWithEmail, getAuthErrorMessage } from './js/auth.js';
+    import { redirectIfLoggedIn, showToast, setButtonLoading } from './js/utils.js';
+
+    await redirectIfLoggedIn();
+
+    // --- Google ---
+    document.getElementById('google-register-btn').addEventListener('click', () => {
+      loginWithGoogle();
+    });
+
+    // --- Registration ---
+    document.getElementById('register-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const confirm = document.getElementById('confirm-password').value;
+      const btn = document.getElementById('register-btn');
+
+      // Clear errors
+      ['name-error', 'email-error', 'password-error', 'confirm-error'].forEach(id => {
+        document.getElementById(id).textContent = '';
+      });
+
+      // Validate
+      let valid = true;
+      if (!name) { document.getElementById('name-error').textContent = 'Name is required'; valid = false; }
+      if (!email) { document.getElementById('email-error').textContent = 'Email is required'; valid = false; }
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        document.getElementById('email-error').textContent = 'Invalid email format'; valid = false;
+      }
+      if (!password) { document.getElementById('password-error').textContent = 'Password is required'; valid = false; }
+      else if (password.length < 6) {
+        document.getElementById('password-error').textContent = 'Min 6 characters'; valid = false;
+      }
+      if (password !== confirm) {
+        document.getElementById('confirm-error').textContent = 'Passwords don\'t match'; valid = false;
+      }
+      if (!valid) return;
+
+      setButtonLoading(btn, true);
+      try {
+        await registerWithEmail(name, email, password);
+      } catch (error) {
+        const msg = getAuthErrorMessage(error.code);
+        if (error.code?.includes('email')) {
+          document.getElementById('email-error').textContent = msg;
+        } else if (error.code?.includes('password')) {
+          document.getElementById('password-error').textContent = msg;
+        } else {
+          showToast(msg, 'error');
+        }
+        setButtonLoading(btn, false);
+      }
+    });
+
+    // --- Password Strength ---
+    document.getElementById('password').addEventListener('input', (e) => {
+      const val = e.target.value;
+      const bar = document.querySelector('.strength-bar');
+      let score = 0;
+      if (val.length >= 6) score++;
+      if (val.length >= 8) score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[0-9]/.test(val)) score++;
+      if (/[^A-Za-z0-9]/.test(val)) score++;
+
+      const widths = ['0%', '20%', '40%', '60%', '80%', '100%'];
+      const colors = ['', '#F43F5E', '#F59E0B', '#F59E0B', '#10B981', '#10B981'];
+      bar.style.width = widths[score];
+      bar.style.background = colors[score];
+    });
+
+    // --- Password Toggles ---
+    function setupToggle(toggleId, inputId) {
+      document.getElementById(toggleId).addEventListener('click', () => {
+        const input = document.getElementById(inputId);
+        const icon = document.querySelector(`#${toggleId} i`);
+        const isPassword = input.type === 'password';
+        input.type = isPassword ? 'text' : 'password';
+        icon.className = isPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+      });
+    }
+    setupToggle('toggle-password', 'password');
+    setupToggle('toggle-confirm', 'confirm-password');
+  </script>
+</body>
+</html>

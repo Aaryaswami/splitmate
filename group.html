@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Group — SplitMate</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .group-page { max-width:800px; margin:0 auto; padding:var(--space-xl) var(--space-lg) var(--space-3xl); }
+    .group-header { margin-bottom:var(--space-xl); }
+    .group-header h1 { margin-bottom:4px; }
+    .group-meta { display:flex; flex-wrap:wrap; gap:var(--space-md); margin-top:var(--space-md); }
+    .group-meta .meta-item { display:flex; align-items:center; gap:6px; font-size:var(--text-sm); color:var(--text-secondary); }
+    .invite-code { display:inline-flex; align-items:center; gap:8px; padding:6px 14px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); font-family:monospace; font-size:var(--text-lg); font-weight:700; letter-spacing:3px; cursor:pointer; transition:all var(--transition-fast); }
+    .invite-code:hover { border-color:var(--primary); }
+    .invite-code i { font-size:var(--text-sm); color:var(--text-muted); }
+
+    /* Tabs */
+    .tabs { display:flex; gap:2px; background:var(--bg-input); border-radius:var(--radius-md); padding:3px; margin-bottom:var(--space-xl); }
+    .tab-btn { flex:1; padding:10px; text-align:center; font-size:var(--text-sm); font-weight:600; color:var(--text-secondary); background:none; border:none; border-radius:var(--radius-sm); cursor:pointer; transition:all var(--transition-fast); font-family:inherit; }
+    .tab-btn.active { background:var(--primary); color:white; }
+    .tab-content { display:none; }
+    .tab-content.active { display:block; animation:fadeIn var(--transition-base) ease; }
+
+    /* Members */
+    .members-row { display:flex; flex-wrap:wrap; gap:var(--space-sm); margin-top:var(--space-md); }
+    .member-chip { display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--bg-input); border-radius:var(--radius-full); font-size:var(--text-sm); }
+    .member-chip .dot { width:8px; height:8px; border-radius:50%; background:var(--success); }
+
+    /* Expense list */
+    .expense-item { display:flex; align-items:center; gap:var(--space-md); padding:var(--space-md); border-bottom:1px solid var(--border-color); }
+    .expense-item:last-child { border-bottom:none; }
+    .expense-icon { width:40px; height:40px; border-radius:var(--radius-md); display:flex; align-items:center; justify-content:center; font-size:20px; background:var(--bg-input); flex-shrink:0; }
+    .expense-info { flex:1; min-width:0; }
+    .expense-info h4 { font-size:var(--text-sm); font-weight:600; font-family:var(--font-body); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .expense-info p { font-size:var(--text-xs); color:var(--text-muted); }
+    .expense-amount { text-align:right; font-weight:700; font-size:var(--text-base); white-space:nowrap; }
+
+    /* Balances */
+    .balance-row { display:flex; align-items:center; gap:var(--space-md); padding:12px 0; border-bottom:1px solid var(--border-color); }
+    .balance-row:last-child { border-bottom:none; }
+    .balance-name { flex:1; font-weight:500; font-size:var(--text-sm); }
+    .balance-bar-wrap { flex:2; height:8px; background:var(--bg-input); border-radius:4px; overflow:hidden; }
+    .balance-bar { height:100%; border-radius:4px; transition:width var(--transition-slow); }
+    .balance-value { min-width:80px; text-align:right; font-weight:700; font-size:var(--text-sm); }
+
+    /* Debts */
+    .debt-item { display:flex; align-items:center; gap:var(--space-md); padding:var(--space-md); background:var(--bg-input); border-radius:var(--radius-md); margin-bottom:var(--space-sm); }
+    .debt-arrow { color:var(--text-muted); }
+    .debt-amount { margin-left:auto; font-weight:700; color:var(--danger-light); }
+
+    .fab { position:fixed; bottom:24px; right:24px; width:56px; height:56px; border-radius:50%; background:var(--accent-gradient); color:white; border:none; font-size:24px; cursor:pointer; box-shadow:0 4px 20px rgba(124,58,237,0.4); transition:all var(--transition-base); display:flex; align-items:center; justify-content:center; z-index:50; }
+    .fab:hover { transform:scale(1.08); box-shadow:0 6px 28px rgba(124,58,237,0.6); }
+
+    @media(max-width:480px) {
+      .tabs { font-size:var(--text-xs); }
+      .group-meta { gap:var(--space-sm); }
+    }
+    /* Chat */
+    .chat-box{height:320px;overflow-y:auto;padding:var(--space-md);background:var(--bg-input);border-radius:var(--radius-md);border:1px solid var(--border-color);margin-bottom:var(--space-sm);display:flex;flex-direction:column;gap:var(--space-sm)}
+    .chat-msg{max-width:80%;padding:8px 12px;border-radius:var(--radius-md);font-size:var(--text-sm);line-height:1.4}
+    .chat-msg.mine{align-self:flex-end;background:var(--primary);color:white;border-bottom-right-radius:4px}
+    .chat-msg.other{align-self:flex-start;background:var(--bg-tertiary);border-bottom-left-radius:4px}
+    .chat-msg.system{align-self:center;background:rgba(124,58,237,.1);color:var(--text-muted);font-size:var(--text-xs);padding:4px 12px;border-radius:var(--radius-full)}
+    .chat-msg .sender{font-size:var(--text-xs);color:var(--text-muted);margin-bottom:2px}
+    .chat-input{display:flex;gap:var(--space-sm)}
+    .chat-input input{flex:1}
+    .chat-input button{width:44px;flex-shrink:0}
+    /* Stat cards */
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:var(--space-sm);margin-bottom:var(--space-xl)}
+    .stat-card{padding:var(--space-md);background:var(--bg-input);border:1px solid var(--border-color);border-radius:var(--radius-md);text-align:center}
+    .stat-card .stat-name{font-size:var(--text-xs);color:var(--text-muted);margin-bottom:4px}
+    .stat-card .stat-row{display:flex;justify-content:space-between;font-size:var(--text-xs);margin-top:4px;color:var(--text-secondary)}
+    .stat-card .stat-net{font-size:var(--text-xl);font-weight:800;margin:4px 0}
+    /* Delete */
+    .danger-zone{margin-top:var(--space-2xl);padding-top:var(--space-xl);border-top:1px solid rgba(244,63,94,.2)}
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="groups.html" class="navbar-brand">
+      <img src="assets/logo.svg" alt="SplitMate">
+      <span>SplitMate</span>
+    </a>
+    <div class="navbar-nav">
+      <a href="groups.html"><i class="fa-solid fa-layer-group"></i> Groups</a>
+    </div>
+  </nav>
+
+  <div class="group-page">
+    <div id="loading" class="page-loader"><div class="loader loader-lg"></div></div>
+
+    <div id="content" class="hidden">
+      <!-- Header -->
+      <div class="group-header">
+        <a href="groups.html" style="font-size:var(--text-sm);color:var(--text-muted);display:inline-flex;align-items:center;gap:4px;margin-bottom:var(--space-sm);"><i class="fa-solid fa-arrow-left"></i> All Groups</a>
+        <h1 id="group-name"></h1>
+        <p class="text-muted text-sm" id="group-desc"></p>
+        <div class="group-meta">
+          <div class="meta-item"><i class="fa-solid fa-users"></i> <span id="member-count"></span> members</div>
+          <div class="meta-item"><i class="fa-solid fa-receipt"></i> <span id="expense-count"></span> expenses</div>
+          <div class="meta-item"><i class="fa-solid fa-indian-rupee-sign"></i> <span id="total-amount"></span></div>
+          <div class="invite-code" id="invite-code" title="Click to copy"><span id="code-text"></span> <i class="fa-solid fa-copy"></i></div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="expenses">Expenses</button>
+        <button class="tab-btn" data-tab="balances">Balances</button>
+        <button class="tab-btn" data-tab="chat">Chat</button>
+      </div>
+
+      <!-- Overview Tab -->
+      <div class="tab-content active" id="tab-overview">
+        <!-- Split New Bill CTA -->
+        <a class="btn btn-primary btn-block" id="split-bill-btn" style="padding:14px;font-size:var(--text-base);margin-bottom:var(--space-xl);">
+          <i class="fa-solid fa-scissors"></i> Split New Bill
+        </a>
+
+        <h3 style="margin-bottom:var(--space-sm);">Members</h3>
+        <div class="members-row" id="members-list"></div>
+
+        <!-- Quick Settlement -->
+        <h3 style="margin-top:var(--space-xl);margin-bottom:var(--space-sm);">Who Owes Whom</h3>
+        <div id="quick-debts"></div>
+
+        <h3 style="margin-top:var(--space-xl);margin-bottom:var(--space-sm);">Recent Expenses</h3>
+        <div class="card-flat" id="recent-expenses"></div>
+        <div style="margin-top:var(--space-md);display:flex;gap:var(--space-sm);flex-wrap:wrap;" id="overview-actions"></div>
+      </div>
+
+      <!-- Expenses Tab -->
+      <div class="tab-content" id="tab-expenses">
+        <div class="card-flat" id="all-expenses"></div>
+        <div style="margin-top:var(--space-md);" id="expenses-actions"></div>
+      </div>
+
+      <!-- Balances Tab -->
+      <div class="tab-content" id="tab-balances">
+        <h3 style="margin-bottom:var(--space-md);">Member Stats</h3>
+        <div class="stat-grid" id="stat-grid"></div>
+        <h3 style="margin-bottom:var(--space-md);">Net Balances</h3>
+        <div class="card-flat" id="balance-list" style="margin-bottom:var(--space-xl);"></div>
+        <h3 style="margin-bottom:var(--space-md);">Simplified Debts</h3>
+        <div id="debt-list"></div>
+      </div>
+
+      <!-- Chat Tab -->
+      <div class="tab-content" id="tab-chat">
+        <div class="chat-box" id="chat-box"></div>
+        <div class="chat-input">
+          <input class="form-input" type="text" id="chat-msg" placeholder="Type a message..." maxlength="500">
+          <button class="btn btn-primary" id="chat-send"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+
+      <!-- Danger Zone -->
+      <div class="danger-zone hidden" id="danger-zone">
+        <button class="btn btn-block" id="delete-group-btn" style="background:rgba(244,63,94,.08);color:var(--danger-light);border:1px solid rgba(244,63,94,.2);padding:12px;">
+          <i class="fa-solid fa-trash"></i> Delete Group
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <a class="fab hidden" id="add-fab" title="Add Expense"><i class="fa-solid fa-plus"></i></a>
+
+  <!-- Delete Modal -->
+  <div class="modal-overlay hidden" id="del-group-modal">
+    <div class="modal">
+      <div class="modal-header"><h3>Delete Group?</h3><button class="modal-close" id="close-del-modal">&times;</button></div>
+      <p class="text-muted" style="margin-bottom:var(--space-lg)">This will permanently delete all expenses, messages, and settlements in this group.</p>
+      <div style="display:flex;gap:var(--space-sm)">
+        <button class="btn btn-secondary" id="cancel-del" style="flex:1">Cancel</button>
+        <button class="btn" id="confirm-del" style="flex:1;background:var(--danger);color:white">Delete Forever</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireAuth, showToast, formatCurrency, formatRelativeTime, escapeHTML, getInitials, setButtonLoading } from './js/utils.js';
+    import { db, doc, getDoc, collection, query, where, getDocs, orderBy, limit, onSnapshot, addDoc, serverTimestamp, deleteDoc, updateDoc, writeBatch } from './js/firebase-config.js';
+    import { getGroupExpenses } from './js/expenses.js';
+    import { calculateNetBalances, simplifyDebts, getBalanceSummary } from './js/settlement.js';
+
+    (async () => {
+    const user = await requireAuth();
+    const groupId = new URLSearchParams(window.location.search).get('id');
+    if (!groupId) { window.location.href = 'groups.html'; return; }
+
+    const catIcons = { food:'🍕', rent:'🏠', travel:'🚗', entertainment:'🎬', other:'📦' };
+
+    let group, expenses, settlements = [];
+
+    try {
+      const snap = await getDoc(doc(db, 'groups', groupId));
+      if (!snap.exists()) { window.location.href = 'groups.html'; return; }
+      group = snap.data();
+      expenses = await getGroupExpenses(groupId);
+
+      const settleQ = query(collection(db, 'settlements'), where('groupId', '==', groupId));
+      settlements = [];
+      try { const sSnap = await getDocs(settleQ); settlements = sSnap.docs.map(d => d.data()); } catch(e) {}
+
+      render();
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('content').classList.remove('hidden');
+      const fab = document.getElementById('add-fab');
+      fab.href = `add-expense.html?groupId=${groupId}`;
+      fab.classList.remove('hidden');
+
+      document.getElementById('split-bill-btn').href = `add-expense.html?groupId=${groupId}`;
+
+      // Quick debts in overview
+      const balances = calculateNetBalances(expenses, settlements);
+      const debts = simplifyDebts(balances);
+      document.getElementById('quick-debts').innerHTML = debts.length === 0
+        ? '<div class="card-flat" style="padding:var(--space-lg);text-align:center;"><i class="fa-solid fa-check-circle" style="color:var(--success);font-size:24px;"></i><p class="text-muted" style="margin-top:8px;">All settled up! 🎉</p></div>'
+        : debts.map(d => `<div class="debt-item"><span style="font-weight:600;font-size:var(--text-sm);">${escapeHTML(d.fromName)}</span><span class="debt-arrow"><i class="fa-solid fa-arrow-right"></i></span><span style="font-weight:600;font-size:var(--text-sm);">${escapeHTML(d.toName)}</span><span class="debt-amount">${formatCurrency(d.amount)}</span></div>`).join('');
+
+      const histLink = `history.html?groupId=${groupId}`;
+      const settleLink = `settlement.html?groupId=${groupId}`;
+      document.getElementById('overview-actions').innerHTML = expenses.length > 0 ? `
+        <a href="${histLink}" class="btn btn-secondary btn-sm" style="padding:8px 16px;font-size:var(--text-sm);"><i class="fa-solid fa-clock-rotate-left"></i> View Full History</a>
+        <a href="${settleLink}" class="btn btn-primary btn-sm" style="padding:8px 16px;font-size:var(--text-sm);"><i class="fa-solid fa-handshake"></i> Settle Up</a>` : '';
+      document.getElementById('expenses-actions').innerHTML = expenses.length > 0 ? `
+        <a href="${histLink}" class="btn btn-secondary" style="padding:10px 20px;"><i class="fa-solid fa-clock-rotate-left"></i> View Full History with Filters</a>` : '';
+
+      // --- Delete Group (creator only) ---
+      if (group.creatorId === user.uid) {
+        document.getElementById('danger-zone').classList.remove('hidden');
+        document.getElementById('delete-group-btn').addEventListener('click', () => document.getElementById('del-group-modal').classList.remove('hidden'));
+        document.getElementById('close-del-modal').addEventListener('click', () => document.getElementById('del-group-modal').classList.add('hidden'));
+        document.getElementById('cancel-del').addEventListener('click', () => document.getElementById('del-group-modal').classList.add('hidden'));
+        document.getElementById('confirm-del').addEventListener('click', async () => {
+          const btn = document.getElementById('confirm-del');
+          setButtonLoading(btn, true);
+          try {
+            // Delete expenses
+            const expSnap = await getDocs(query(collection(db, 'expenses'), where('groupId', '==', groupId)));
+            const batch = writeBatch(db);
+            expSnap.docs.forEach(d => batch.delete(d.ref));
+            // Delete messages
+            const msgSnap = await getDocs(collection(db, 'groups', groupId, 'messages'));
+            msgSnap.docs.forEach(d => batch.delete(d.ref));
+            // Delete settlements
+            const setSnap = await getDocs(query(collection(db, 'settlements'), where('groupId', '==', groupId)));
+            setSnap.docs.forEach(d => batch.delete(d.ref));
+            // Delete payments
+            const paySnap = await getDocs(collection(db, 'groups', groupId, 'payments'));
+            paySnap.docs.forEach(d => batch.delete(d.ref));
+            batch.delete(doc(db, 'groups', groupId));
+            await batch.commit();
+            showToast('Group deleted', 'success');
+            window.location.href = 'groups.html';
+          } catch (e) {
+            console.error(e);
+            showToast('Failed to delete', 'error');
+            setButtonLoading(btn, false);
+          }
+        });
+      }
+
+      // --- Chat ---
+      initChat();
+
+    } catch (e) {
+      console.error(e);
+      document.getElementById('loading').innerHTML = '<div class="empty-state" style="padding:var(--space-xl)"><i class="fa-solid fa-circle-exclamation" style="color:var(--danger);font-size:32px;"></i><h3>Failed to load group</h3><p class="text-muted">' + (e.message || 'Check console for details') + '</p><a href="groups.html" class="btn btn-secondary" style="margin-top:var(--space-md);">Back to Groups</a></div>';
+    }
+
+    // --- Render ---
+    function render() {
+      document.getElementById('group-name').textContent = group.name;
+      document.getElementById('group-desc').textContent = group.description || '';
+      document.getElementById('member-count').textContent = group.members.length;
+      document.getElementById('expense-count').textContent = group.expenseCount || 0;
+      document.getElementById('total-amount').textContent = formatCurrency(group.totalExpenses || 0);
+      document.getElementById('code-text').textContent = group.code;
+
+      // Members
+      document.getElementById('members-list').innerHTML = (group.memberDetails || []).map(m =>
+        `<div class="member-chip"><span class="dot"></span>${escapeHTML(m.name)}</div>`
+      ).join('');
+
+      // Expenses
+      const expHTML = expenses.length === 0
+        ? '<div class="empty-state" style="padding:var(--space-xl)"><i class="fa-solid fa-receipt"></i><h3>No expenses yet</h3></div>'
+        : expenses.map(renderExpenseItem).join('');
+      document.getElementById('recent-expenses').innerHTML = expenses.length === 0 ? expHTML : expenses.slice(0, 5).map(renderExpenseItem).join('');
+      document.getElementById('all-expenses').innerHTML = expHTML;
+
+      // --- Advanced Member Stats ---
+      const memberStats = {};
+      (group.memberDetails || []).forEach(m => { memberStats[m.id] = { name: m.name, paid: 0, owes: 0, getsBack: 0 }; });
+      expenses.forEach(exp => {
+        if (exp.contributions && exp.contributions.length > 0) {
+          exp.contributions.forEach(c => { if (memberStats[c.userId]) memberStats[c.userId].paid += c.amount; });
+        } else {
+          if (memberStats[exp.paidById]) memberStats[exp.paidById].paid += exp.amount;
+        }
+        (exp.splits || []).forEach(s => { if (memberStats[s.userId]) memberStats[s.userId].owes += s.share; });
+      });
+      const balances = calculateNetBalances(expenses, settlements);
+      Object.keys(memberStats).forEach(uid => { 
+        const s = memberStats[uid];
+        s.getsBack = Math.max(s.paid - s.owes, 0); 
+        s.net = balances[uid] ? balances[uid].amount : 0;
+      });
+
+      document.getElementById('stat-grid').innerHTML = Object.values(memberStats).map(s => {
+        const color = s.net > 0 ? 'var(--success)' : s.net < 0 ? 'var(--danger)' : 'var(--text-muted)';
+        const sign = s.net > 0 ? '+' : '';
+        return `<div class="stat-card">
+          <div class="stat-name">${escapeHTML(s.name)}</div>
+          <div class="stat-net" style="color:${color}">${sign}${formatCurrency(s.net)}</div>
+          <div class="stat-row"><span>Paid</span><span style="color:var(--success)">${formatCurrency(s.paid)}</span></div>
+          <div class="stat-row"><span>Owes</span><span style="color:var(--danger)">${formatCurrency(s.owes)}</span></div>
+          <div class="stat-row"><span>Gets Back</span><span>${formatCurrency(s.getsBack)}</span></div>
+        </div>`;
+      }).join('');
+
+      // Balances
+      const summary = getBalanceSummary(balances);
+      const maxAbs = Math.max(...summary.map(s => Math.abs(s.amount)), 1);
+      document.getElementById('balance-list').innerHTML = summary.length === 0
+        ? '<div class="empty-state" style="padding:var(--space-lg)"><p class="text-muted">Add expenses to see balances</p></div>'
+        : summary.map(s => {
+          const pct = Math.min(Math.abs(s.amount) / maxAbs * 100, 100);
+          const color = s.status === 'credit' ? 'var(--success)' : s.status === 'debt' ? 'var(--danger)' : 'var(--text-muted)';
+          const sign = s.amount > 0 ? '+' : '';
+          return `<div class="balance-row">
+            <span class="balance-name">${escapeHTML(s.name)}</span>
+            <div class="balance-bar-wrap"><div class="balance-bar" style="width:${pct}%;background:${color}"></div></div>
+            <span class="balance-value" style="color:${color}">${sign}${formatCurrency(s.amount)}</span>
+          </div>`;
+        }).join('');
+
+      // Debts
+      const debts = simplifyDebts(balances);
+      document.getElementById('debt-list').innerHTML = debts.length === 0
+        ? '<div class="empty-state" style="padding:var(--space-lg)"><i class="fa-solid fa-check-circle"></i><h3>All settled up! 🎉</h3></div>'
+        : debts.map(d => `<div class="debt-item">
+            <span style="font-weight:600;font-size:var(--text-sm);">${escapeHTML(d.fromName)}</span>
+            <span class="debt-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+            <span style="font-weight:600;font-size:var(--text-sm);">${escapeHTML(d.toName)}</span>
+            <span class="debt-amount">${formatCurrency(d.amount)}</span>
+          </div>`).join('');
+    }
+
+    function renderExpenseItem(exp) {
+      const icon = catIcons[exp.category] || '📦';
+      const time = formatRelativeTime(exp.createdAt);
+      return `<a href="expense.html?id=${exp.id}" class="expense-item" style="text-decoration:none;color:inherit;cursor:pointer;">
+        <div class="expense-icon">${icon}</div>
+        <div class="expense-info">
+          <h4>${escapeHTML(exp.description)}</h4>
+          <p>Paid by ${escapeHTML(exp.paidByName)} · ${exp.splitType} · ${time}</p>
+        </div>
+        <div class="expense-amount">${formatCurrency(exp.amount)}</div>
+        <i class="fa-solid fa-chevron-right" style="color:var(--text-muted);font-size:var(--text-xs);"></i>
+      </a>`;
+    }
+
+    // --- Chat System ---
+    function initChat() {
+      const chatBox = document.getElementById('chat-box');
+      const msgInput = document.getElementById('chat-msg');
+      const sendBtn = document.getElementById('chat-send');
+
+      const msgRef = collection(db, 'groups', groupId, 'messages');
+      const q = query(msgRef, orderBy('createdAt', 'asc'));
+
+      // Real-time listener
+      onSnapshot(q, (snapshot) => {
+        chatBox.innerHTML = '';
+        snapshot.docs.forEach(d => {
+          const m = d.data();
+          const div = document.createElement('div');
+          if (m.type === 'system') {
+            div.className = 'chat-msg system';
+            div.textContent = m.text;
+          } else {
+            const isMine = m.senderId === user.uid;
+            div.className = `chat-msg ${isMine ? 'mine' : 'other'}`;
+            div.innerHTML = isMine ? escapeHTML(m.text) : `<div class="sender">${escapeHTML(m.senderName)}</div>${escapeHTML(m.text)}`;
+          }
+          chatBox.appendChild(div);
+        });
+        chatBox.scrollTop = chatBox.scrollHeight;
+      });
+
+      async function sendMsg() {
+        const text = msgInput.value.trim();
+        if (!text) return;
+        msgInput.value = '';
+        try {
+          await addDoc(msgRef, {
+            senderId: user.uid,
+            senderName: user.displayName || user.email,
+            text,
+            type: 'normal',
+            createdAt: serverTimestamp()
+          });
+        } catch (e) { console.error(e); showToast('Failed to send', 'error'); }
+      }
+
+      sendBtn.addEventListener('click', sendMsg);
+      msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMsg(); });
+    }
+
+    // --- Tabs ---
+    document.querySelector('.tabs').addEventListener('click', (e) => {
+      const btn = e.target.closest('.tab-btn');
+      if (!btn) return;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+    });
+
+    // --- Copy Invite Code ---
+    document.getElementById('invite-code').addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(group.code);
+        showToast('Code copied!', 'success');
+      } catch { showToast(group.code, 'info'); }
+    });
+    })();
+  </script>
+</body>
+</html>
+

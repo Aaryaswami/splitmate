@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense History — SplitMate</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .history-page{max-width:800px;margin:0 auto;padding:var(--space-xl) var(--space-lg) var(--space-3xl)}
+    .filter-bar{display:flex;flex-wrap:wrap;gap:var(--space-sm);margin-bottom:var(--space-xl)}
+    .filter-bar .form-input,.filter-bar select{padding:8px 12px;font-size:var(--text-sm);flex:1;min-width:140px}
+    .filter-bar input[type=date]{min-width:130px}
+    .result-count{font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-md)}
+    .exp-row{border-bottom:1px solid var(--border-color);cursor:pointer;transition:background var(--transition-fast)}
+    .exp-row:hover{background:var(--bg-card)}
+    .exp-row:last-child{border-bottom:none}
+    .exp-main{display:flex;align-items:center;gap:var(--space-md);padding:var(--space-md)}
+    .exp-icon{width:36px;height:36px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px;background:var(--bg-input);flex-shrink:0}
+    .exp-info{flex:1;min-width:0}
+    .exp-info h4{font-size:var(--text-sm);font-weight:600;font-family:var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .exp-info p{font-size:var(--text-xs);color:var(--text-muted)}
+    .exp-amt{text-align:right;font-weight:700;white-space:nowrap}
+    .exp-detail{display:none;padding:0 var(--space-md) var(--space-md) 60px}
+    .exp-detail.open{display:block;animation:fadeIn .2s ease}
+    .split-table{width:100%;font-size:var(--text-sm)}
+    .split-table td{padding:4px 0;color:var(--text-secondary)}
+    .split-table td:last-child{text-align:right;font-weight:600;color:var(--text-primary)}
+    .chevron{color:var(--text-muted);transition:transform var(--transition-fast);font-size:var(--text-xs)}
+    .exp-row.expanded .chevron{transform:rotate(90deg)}
+    @media(max-width:480px){
+      .filter-bar{flex-direction:column}
+      .filter-bar .form-input,.filter-bar select{min-width:100%}
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="groups.html" class="navbar-brand"><img src="assets/logo.svg" alt="SplitMate"><span>SplitMate</span></a>
+    <div class="navbar-nav"><a href="groups.html"><i class="fa-solid fa-layer-group"></i> Groups</a></div>
+  </nav>
+
+  <div class="history-page">
+    <a href="#" id="back-link" style="font-size:var(--text-sm);color:var(--text-muted);display:inline-flex;align-items:center;gap:4px;margin-bottom:var(--space-md)"><i class="fa-solid fa-arrow-left"></i> Back to group</a>
+    <h1 style="margin-bottom:var(--space-lg)">Expense History</h1>
+
+    <div id="loading" class="page-loader"><div class="loader loader-lg"></div></div>
+
+    <div id="content" class="hidden">
+      <!-- Filters -->
+      <div class="filter-bar">
+        <input class="form-input" type="search" id="search" placeholder="🔍 Search expenses...">
+        <select class="form-input" id="filter-category">
+          <option value="all">All Categories</option>
+          <option value="food">🍕 Food</option>
+          <option value="rent">🏠 Rent</option>
+          <option value="travel">🚗 Travel</option>
+          <option value="entertainment">🎬 Fun</option>
+          <option value="other">📦 Other</option>
+        </select>
+        <select class="form-input" id="filter-payer"><option value="all">All Payers</option></select>
+        <input class="form-input" type="date" id="date-from" title="From date">
+        <input class="form-input" type="date" id="date-to" title="To date">
+      </div>
+
+      <p class="result-count" id="result-count"></p>
+      <div class="card-flat" id="expense-list"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireAuth, formatCurrency, formatDate, escapeHTML, debounce } from './js/utils.js';
+    import { db, doc, getDoc } from './js/firebase-config.js';
+    import { loadHistory, filterExpenses } from './js/history.js';
+
+    const user = await requireAuth();
+    const groupId = new URLSearchParams(window.location.search).get('groupId');
+    if (!groupId) window.location.href = 'groups.html';
+
+    document.getElementById('back-link').href = `group.html?id=${groupId}`;
+
+    const catIcons = { food:'🍕', rent:'🏠', travel:'🚗', entertainment:'🎬', other:'📦' };
+    let allExpenses = [];
+
+    try {
+      // Load group members for payer filter
+      const snap = await getDoc(doc(db, 'groups', groupId));
+      if (snap.exists()) {
+        const members = snap.data().memberDetails || [];
+        const sel = document.getElementById('filter-payer');
+        members.forEach(m => {
+          const opt = document.createElement('option');
+          opt.value = m.id; opt.textContent = m.name;
+          sel.appendChild(opt);
+        });
+      }
+
+      allExpenses = await loadHistory(groupId);
+      renderList(allExpenses);
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('content').classList.remove('hidden');
+    } catch (e) {
+      console.error(e);
+      document.getElementById('loading').innerHTML = '<p class="text-center text-danger">Failed to load history</p>';
+    }
+
+    function getFilters() {
+      return {
+        category: document.getElementById('filter-category').value,
+        paidBy: document.getElementById('filter-payer').value,
+        search: document.getElementById('search').value.trim(),
+        dateFrom: document.getElementById('date-from').value,
+        dateTo: document.getElementById('date-to').value
+      };
+    }
+
+    function applyFilters() {
+      const filtered = filterExpenses(allExpenses, getFilters());
+      renderList(filtered);
+    }
+
+    function renderList(expenses) {
+      const container = document.getElementById('expense-list');
+      document.getElementById('result-count').textContent = `${expenses.length} expense${expenses.length !== 1 ? 's' : ''}`;
+
+      if (expenses.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="padding:var(--space-xl)"><i class="fa-solid fa-receipt"></i><h3>No expenses found</h3><p class="text-muted">Try adjusting your filters</p></div>';
+        return;
+      }
+
+      container.innerHTML = expenses.map(exp => {
+        const icon = catIcons[exp.category] || '📦';
+        const date = formatDate(exp.createdAt);
+        const splitsHTML = (exp.splits || []).map(s =>
+          `<tr><td>${escapeHTML(s.name)}</td><td>${formatCurrency(s.share)}</td></tr>`
+        ).join('');
+
+        return `<div class="exp-row" data-id="${exp.id}">
+          <div class="exp-main">
+            <div class="exp-icon">${icon}</div>
+            <div class="exp-info">
+              <h4>${escapeHTML(exp.description)}</h4>
+              <p>Paid by ${escapeHTML(exp.paidByName)} · ${exp.splitType} · ${date}</p>
+            </div>
+            <div class="exp-amt">${formatCurrency(exp.amount)}</div>
+            <i class="fa-solid fa-chevron-right chevron"></i>
+          </div>
+          <div class="exp-detail"><table class="split-table">${splitsHTML}</table></div>
+        </div>`;
+      }).join('');
+    }
+
+    // --- Expand/Collapse ---
+    document.getElementById('expense-list').addEventListener('click', (e) => {
+      const row = e.target.closest('.exp-row');
+      if (!row) return;
+      row.classList.toggle('expanded');
+      row.querySelector('.exp-detail').classList.toggle('open');
+    });
+
+    // --- Filter listeners ---
+    const debouncedFilter = debounce(applyFilters, 250);
+    document.getElementById('search').addEventListener('input', debouncedFilter);
+    ['filter-category', 'filter-payer', 'date-from', 'date-to'].forEach(id => {
+      document.getElementById(id).addEventListener('change', applyFilters);
+    });
+  </script>
+</body>
+</html>

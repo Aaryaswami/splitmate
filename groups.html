@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Groups — SplitMate</title>
+  <meta name="description" content="View and manage your expense splitting groups on SplitMate.">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/components.css">
+  <style>
+    .groups-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:var(--space-xl); }
+    .groups-header h1 { font-size:var(--text-3xl); }
+    .header-actions { display:flex; gap:var(--space-sm); }
+    .groups-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:var(--space-lg); }
+    .group-card { display:flex; flex-direction:column; gap:var(--space-md); text-decoration:none; color:inherit; cursor:pointer; }
+    .group-card:hover { transform:translateY(-2px); }
+    .group-card-header { display:flex; align-items:center; gap:var(--space-md); }
+    .group-card-info { flex:1; min-width:0; }
+    .group-card-name { font-size:var(--text-lg); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .group-card-stats { display:flex; gap:var(--space-lg); }
+    .group-stat { display:flex; align-items:center; gap:6px; font-size:var(--text-sm); color:var(--text-secondary); }
+    .group-stat i { font-size:var(--text-xs); color:var(--text-muted); }
+    .group-card-code { display:flex; }
+    @media(max-width:480px) {
+      .groups-grid { grid-template-columns:1fr; }
+      .groups-header { flex-direction:column; align-items:flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="groups.html" class="navbar-brand">
+      <img src="assets/logo.svg" alt="SplitMate">
+      <span>SplitMate</span>
+    </a>
+    <div class="navbar-nav">
+      <a href="groups.html" class="active"><i class="fa-solid fa-layer-group"></i> Groups</a>
+      <button class="btn btn-ghost" id="logout-btn"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+    </div>
+  </nav>
+
+  <main class="container" style="padding-top:var(--space-xl);padding-bottom:var(--space-3xl);">
+    <!-- Header -->
+    <div class="groups-header">
+      <div>
+        <h1>My Groups</h1>
+        <p class="text-muted text-sm" id="user-greeting"></p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" id="join-group-btn"><i class="fa-solid fa-right-to-bracket"></i> Join Group</button>
+        <button class="btn btn-primary" id="create-group-btn"><i class="fa-solid fa-plus"></i> Create Group</button>
+      </div>
+    </div>
+
+    <!-- Groups Grid -->
+    <div id="groups-container">
+      <div class="page-loader"><div class="loader loader-lg"></div></div>
+    </div>
+  </main>
+
+  <!-- Create Group Modal -->
+  <div class="modal-overlay hidden" id="create-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Create a Group</h3>
+        <button class="modal-close" data-close="create-modal">&times;</button>
+      </div>
+      <form id="create-form">
+        <div class="form-group">
+          <label class="form-label" for="group-name">Group Name *</label>
+          <input class="form-input" type="text" id="group-name" placeholder="e.g. Hostel Room 204" maxlength="50" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="group-desc">Description</label>
+          <input class="form-input" type="text" id="group-desc" placeholder="Optional short description" maxlength="100">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="create-submit"><i class="fa-solid fa-plus"></i> Create</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Join Group Modal -->
+  <div class="modal-overlay hidden" id="join-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Join a Group</h3>
+        <button class="modal-close" data-close="join-modal">&times;</button>
+      </div>
+      <form id="join-form">
+        <div class="form-group">
+          <label class="form-label" for="invite-code">Invite Code</label>
+          <input class="form-input" type="text" id="invite-code" placeholder="e.g. A3B7K9" maxlength="6" style="text-transform:uppercase;letter-spacing:4px;font-weight:700;font-size:var(--text-xl);text-align:center;" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="join-submit"><i class="fa-solid fa-right-to-bracket"></i> Join</button>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { requireAuth, showToast, setButtonLoading } from './js/utils.js';
+    import { logout } from './js/auth.js';
+    import { createGroup, joinGroupByCode, loadUserGroups, renderGroupCard } from './js/groups.js';
+
+    const user = await requireAuth();
+    document.getElementById('user-greeting').textContent = `Welcome, ${user.displayName || user.email}`;
+
+    // --- Load Groups ---
+    async function loadGroups() {
+      const container = document.getElementById('groups-container');
+      try {
+        const groups = await loadUserGroups(user.uid);
+        if (groups.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <i class="fa-solid fa-people-group"></i>
+              <h3>No groups yet</h3>
+              <p class="text-muted">Create a group or join one with an invite code.</p>
+            </div>`;
+          return;
+        }
+        container.innerHTML = `<div class="groups-grid">${groups.map(renderGroupCard).join('')}</div>`;
+      } catch (e) {
+        console.error(e);
+        container.innerHTML = '<p class="text-center text-danger">Failed to load groups.</p>';
+      }
+    }
+
+    await loadGroups();
+
+    // --- Modals ---
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+    document.getElementById('create-group-btn').addEventListener('click', () => openModal('create-modal'));
+    document.getElementById('join-group-btn').addEventListener('click', () => openModal('join-modal'));
+
+    document.querySelectorAll('[data-close]').forEach(btn => {
+      btn.addEventListener('click', () => closeModal(btn.dataset.close));
+    });
+
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) closeModal(overlay.id); });
+    });
+
+    // --- Create Group ---
+    document.getElementById('create-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('group-name').value.trim();
+      if (!name) return;
+      const desc = document.getElementById('group-desc').value.trim();
+      const btn = document.getElementById('create-submit');
+
+      setButtonLoading(btn, true);
+      try {
+        const result = await createGroup(name, desc, user);
+        showToast(`Group created! Code: ${result.code}`, 'success');
+        closeModal('create-modal');
+        document.getElementById('create-form').reset();
+        await loadGroups();
+      } catch (e) {
+        showToast('Failed to create group', 'error');
+      }
+      setButtonLoading(btn, false);
+    });
+
+    // --- Join Group ---
+    document.getElementById('join-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('invite-code').value.trim();
+      if (!code) return;
+      const btn = document.getElementById('join-submit');
+
+      setButtonLoading(btn, true);
+      try {
+        const result = await joinGroupByCode(code, user);
+        showToast(`Joined "${result.name}"!`, 'success');
+        closeModal('join-modal');
+        document.getElementById('join-form').reset();
+        await loadGroups();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+      setButtonLoading(btn, false);
+    });
+
+    // --- Logout ---
+    document.getElementById('logout-btn').addEventListener('click', () => logout());
+  </script>
+</body>
+</html>
